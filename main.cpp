@@ -89,11 +89,12 @@ public:
 
 class AVR {
 private:
+public:
 	GPIO<PIN_RDYBSY> pin_rdybsy_;
 	GPIO<PIN_OE> pin_oe_;
 	GPIO<PIN_WR> pin_wr_;
 	GPIO<PIN_BS1> pin_bs1_;
-	GPIO<PIN_BS2> pin_bs2_;
+//	GPIO<PIN_BS2> pin_bs2_;
 	GPIO<PIN_XA0> pin_xa0_;
 	GPIO<PIN_XA1> pin_xa1_;
 	GPIO<PIN_PAGEL> pin_pagel_;
@@ -124,7 +125,7 @@ private:
 			pin_oe_.set_mode(PinMode::Input);
 			pin_wr_.set_mode(PinMode::Input);
 			pin_bs1_.set_mode(PinMode::Input);
-			pin_bs2_.set_mode(PinMode::Input);
+//			pin_bs2_.set_mode(PinMode::Input);
 			pin_xa0_.set_mode(PinMode::Input);
 			pin_xa1_.set_mode(PinMode::Input);
 			pin_pagel_.set_mode(PinMode::Input);
@@ -159,7 +160,7 @@ private:
 	}
 	void write_bs2(bool b)
 	{
-		pin_bs2_.write(b);
+//		pin_bs2_.write(b);
 	}
 	void write_xa0(bool b)
 	{
@@ -218,14 +219,22 @@ private:
 		write_xtal1(0);
 		usleep(1);
 	}
-public:
+	void pulse_wr()
+	{
+		usleep(10);
+		write_wr(0);
+		usleep(10);
+		write_wr(1);
+		usleep(10);
+	}
+//public:
 	AVR()
 	{
 		pin_rdybsy_.set_mode(PinMode::Input);
 		pin_oe_.set_mode(PinMode::Output);
 		pin_wr_.set_mode(PinMode::Output);
 		pin_bs1_.set_mode(PinMode::Output);
-		pin_bs2_.set_mode(PinMode::Output);
+//		pin_bs2_.set_mode(PinMode::Output);
 		pin_xa0_.set_mode(PinMode::Output);
 		pin_xa1_.set_mode(PinMode::Output);
 		pin_pagel_.set_mode(PinMode::Output);
@@ -247,18 +256,32 @@ public:
 	uint8_t read_data()
 	{
 		set_data_pin_mode(PinMode::Input);
-		write_bs1(0);
 		write_oe(0);
 		usleep(1);
 		int c = read_data_pins();
 		write_oe(1);
+		return c;
+	}
+	uint8_t read_data_()
+	{
+		write_bs1(0);
+		int c = read_data();
 		write_bs1(0);
 		return c;
 	}
 	uint8_t read_signature(int addr)
 	{
+		write_bs1(0);
+		write_bs2(0);
 		set_command(0x08);
 		set_low_address(addr);
+		return read_data_();
+	}
+	uint8_t read_fuse(bool bs1, bool bs2)
+	{
+		write_bs1(bs1);
+		write_bs2(bs2);
+		set_command(0x04);
 		return read_data();
 	}
 };
@@ -277,16 +300,61 @@ int main()
 	signal(SIGINT, sigint);
 	bcm2835_init();
 	avr = new AVR();
+	msleep(1);
 
-	avr->set_command(0x08);
-	avr->set_low_address(0x00);
-	int c = avr->read_data();
+#if 1
+	avr->set_data_pin_mode(PinMode::Output);
+
+#if 1
+	avr->set_command(0x40);
+	avr->write_data_pins(0x62);
+	avr->pulse_xtal1();
+	avr->write_bs1(0);
+	avr->write_bs2(0);
+	avr->pulse_wr();
+	msleep(10);
+
+	avr->set_command(0x40);
+	avr->write_data_pins(0xd9);
+	avr->pulse_xtal1();
+	avr->write_bs1(1);
+	avr->write_bs2(0);
+	avr->pulse_wr();
+	msleep(10);
+
+	avr->set_command(0x40);
+	avr->write_data_pins(0xff);
+	avr->pulse_xtal1();
+	avr->write_bs1(0);
+	avr->write_bs2(1);
+	avr->pulse_wr();
+	msleep(10);
+
+#endif
+
+
+
+
+	int e = avr->read_fuse(0, 1);
+	int h = avr->read_fuse(1, 1);
+	int l = avr->read_fuse(0, 0);
+	printf("%02x %02x %02x\n", e, h, l);
 
 	printf("%02x %02x %02x\n"
 		   , avr->read_signature(0)
 		   , avr->read_signature(1)
 		   , avr->read_signature(2)
 		   );
+#else
+	avr->set_data_pin_mode(PinMode::Output);
+	while (1) {
+		avr->write_data_pins(0xff);
+		msleep(500);
+		avr->write_data_pins(0x00);
+		msleep(500);
+	}
+#endif
+
 
 	delete avr;
 	return 0;
