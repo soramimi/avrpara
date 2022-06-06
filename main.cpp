@@ -25,6 +25,7 @@ void msleep(int ms)
 #define PIN_PAGEL RPI_V2_GPIO_P1_19
 #define PIN_XTAL1 RPI_V2_GPIO_P1_21
 #define PIN_BS2 RPI_V2_GPIO_P1_23
+#define PIN_RESET12V RPI_V2_GPIO_P1_29
 
 #define PIN_DATA0 RPI_V2_GPIO_P1_08
 #define PIN_DATA1 RPI_V2_GPIO_P1_10
@@ -94,9 +95,10 @@ public:
 	GPIO<PIN_OE> pin_oe_;
 	GPIO<PIN_WR> pin_wr_;
 	GPIO<PIN_BS1> pin_bs1_;
-//	GPIO<PIN_BS2> pin_bs2_;
 	GPIO<PIN_XA0> pin_xa0_;
 	GPIO<PIN_XA1> pin_xa1_;
+	GPIO<PIN_BS2> pin_bs2_;
+	GPIO<PIN_RESET12V> pin_reset12v_;
 	GPIO<PIN_PAGEL> pin_pagel_;
 	GPIO<PIN_XTAL1> pin_xtal1_;
 	GPIO<PIN_DATA0> pin_data0_;
@@ -119,18 +121,22 @@ public:
 			write_xtal1(0);
 			write_pagel(0);
 			set_data_pin_mode(PinMode::Output);
-			usleep(1);
+			write_reset12v(1);
+			msleep(5);
 		} else {
+			write_reset12v(0);
 			pin_rdybsy_.set_mode(PinMode::Input);
 			pin_oe_.set_mode(PinMode::Input);
 			pin_wr_.set_mode(PinMode::Input);
 			pin_bs1_.set_mode(PinMode::Input);
-//			pin_bs2_.set_mode(PinMode::Input);
+			pin_bs2_.set_mode(PinMode::Input);
 			pin_xa0_.set_mode(PinMode::Input);
 			pin_xa1_.set_mode(PinMode::Input);
 			pin_pagel_.set_mode(PinMode::Input);
 			pin_xtal1_.set_mode(PinMode::Input);
 			set_data_pin_mode(PinMode::Input);
+			msleep(1);
+			pin_reset12v_.set_mode(PinMode::Input);
 		}
 	}
 	void write_data_pins(bool iscommand, uint8_t value)
@@ -160,7 +166,7 @@ public:
 	}
 	void write_bs2(bool b)
 	{
-//		pin_bs2_.write(b);
+		pin_bs2_.write(b);
 	}
 	void write_xa0(bool b)
 	{
@@ -177,6 +183,10 @@ public:
 	void write_xtal1(bool b)
 	{
 		pin_xtal1_.write(b);
+	}
+	void write_reset12v(bool b)
+	{
+		pin_reset12v_.write(b);
 	}
 	void set_data_pin_mode(PinMode mode)
 	{
@@ -230,16 +240,19 @@ public:
 //public:
 	AVR()
 	{
+		pin_reset12v_.set_mode(PinMode::Output);
+		pin_reset12v_.write(0);
 		pin_rdybsy_.set_mode(PinMode::Input);
 		pin_oe_.set_mode(PinMode::Output);
 		pin_wr_.set_mode(PinMode::Output);
 		pin_bs1_.set_mode(PinMode::Output);
-//		pin_bs2_.set_mode(PinMode::Output);
+		pin_bs2_.set_mode(PinMode::Output);
 		pin_xa0_.set_mode(PinMode::Output);
 		pin_xa1_.set_mode(PinMode::Output);
 		pin_pagel_.set_mode(PinMode::Output);
 		pin_xtal1_.set_mode(PinMode::Output);
 		set_data_pin_mode(PinMode::Input);
+		msleep(5);
 	}
 	~AVR()
 	{
@@ -300,7 +313,7 @@ int main()
 	signal(SIGINT, sigint);
 	bcm2835_init();
 	avr = new AVR();
-	msleep(1);
+	avr->set_programming_mode(true);
 
 #if 1
 	avr->set_data_pin_mode(PinMode::Output);
